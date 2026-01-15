@@ -33,11 +33,11 @@ python app.py
 The application will:
 - Initialize the database
 - Load images from the JSONL file
-- Start the server on http://0.0.0.0:5001
+- Start the server on http://0.0.0.0:5000
 
 ## Usage
 
-1. Open your browser to http://localhost:5001
+1. Open your browser to http://localhost:5000
 2. Review the displayed image
 3. Either:
    - Add a Q&A pair and submit (auto-approves)
@@ -76,14 +76,3 @@ The application will:
 - `GET /api/stats` - Get statistics
 - `GET /api/annotated_images` - Get carousel data
 - `GET /api/export/all` - Export all as JSON
-
-## Port
-
-Runs on port **5001** (different from the pair annotation website which uses 5000)
-
-## Notes
-
-- Only loads the first image from each pair in the source file
-- Prevents duplicate annotations (one annotation per image)
-- Dark theme UI matching the pair annotation website
-- Auto-advances to next image after annotation
