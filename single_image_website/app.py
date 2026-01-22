@@ -1,257 +1,179 @@
 #!/usr/bin/env python3
-"""
-Single Image Annotation Website
-A Flask web application for annotating individual images with Q&A.
-"""
-
 import os
 import json
-import sqlite3
-from flask import Flask, render_template, request, jsonify, g
+from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from datetime import datetime
+from functools import wraps
+
+from models import db, User, Image, Assignment, Annotation
 
 app = Flask(__name__)
-app.secret_key = 'your-secret-key-change-this'
+app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 
-# Configuration
-DATABASE = 'single_image_annotations.db'
-IMAGES_BASE_PATH = '.'
+database_url = os.environ.get('DATABASE_URL', 'sqlite:///single_image_annotations.db')
+if database_url.startswith('postgres://'):
+    database_url = database_url.replace('postgres://', 'postgresql+psycopg://', 1)
+elif database_url.startswith('postgresql://') and '+' not in database_url:
+    database_url = database_url.replace('postgresql://', 'postgresql+psycopg://', 1)
+app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-def get_db():
-    """Get database connection."""
-    db = getattr(g, '_database', None)
-    if db is None:
-        db = g._database = sqlite3.connect(DATABASE)
-        db.row_factory = sqlite3.Row
-    return db
+db.init_app(app)
 
-@app.teardown_appcontext
-def close_connection(exception):
-    """Close database connection."""
-    db = getattr(g, '_database', None)
-    if db is not None:
-        db.close()
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
 
-def init_db():
-    """Initialize the database with required tables."""
-    with app.app_context():
-        db = get_db()
-        db.executescript('''
-            CREATE TABLE IF NOT EXISTS images (
-                id TEXT PRIMARY KEY,
-                source TEXT NOT NULL,
-                image_path TEXT NOT NULL,
-                image_url TEXT,
-                original_meta TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            
-            CREATE TABLE IF NOT EXISTS annotations (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                image_id TEXT NOT NULL,
-                question TEXT,
-                answer TEXT,
-                is_approved BOOLEAN,
-                is_reported BOOLEAN DEFAULT 0,
-                annotated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (image_id) REFERENCES images (id)
-            );
-            
-            CREATE INDEX IF NOT EXISTS idx_image_id ON annotations(image_id);
-            CREATE INDEX IF NOT EXISTS idx_approved ON annotations(is_approved);
-        ''')
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(user_id)
+
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated or not current_user.is_admin():
+            flash('Admin access required')
+            return redirect(url_for('index'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+    
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        user = User.query.filter_by(username=username).first()
         
-        # Check if is_reported column exists, if not add it
-        cursor = db.execute("PRAGMA table_info(annotations)")
-        columns = [column[1] for column in cursor.fetchall()]
-        
-        if 'is_reported' not in columns:
-            print("Adding is_reported column to annotations table...")
-            db.execute('ALTER TABLE annotations ADD COLUMN is_reported BOOLEAN DEFAULT 0')
-        
-        db.commit()
-        print("Database initialized successfully")
-
-def load_images():
-    """Load images from JSONL files into the database (extracting first image from pairs)."""
-    db = get_db()
+        if user and user.check_password(password):
+            login_user(user)
+            return redirect(url_for('index'))
+        flash('Invalid username or password')
     
-    # Check if data already loaded
-    count = db.execute('SELECT COUNT(*) as count FROM images').fetchone()
-    if count['count'] > 0:
-        print(f"Database already contains {count['count']} images.")
-        return
-    
-    print("Loading images into database...")
-    
-    # Load from pairs.jsonl and extract first image only
-    pairs_file = os.path.join(IMAGES_BASE_PATH, 'images.json')
-    print(f"Loading images from {pairs_file}")
-    if os.path.exists(pairs_file):
-        with open(pairs_file, 'r') as f:
-            data = json.load(f)
-            for line_num, line in enumerate(data['images']):
+    return render_template('login.html')
 
-                try:
-                    
-                    # Generate a unique ID for this image
-                    image_id = f"{line_num:06d}"
-                    
-                    # Extract first image URL
-                    image_url = line.get('image_url', '')
-
-                    # Store the image
-                    db.execute('''
-                        INSERT OR IGNORE INTO images 
-                        (id, source, image_path, image_url, original_meta)
-                        VALUES (?, ?, ?, ?, ?)
-                    ''', (
-                        image_id,
-                        data.get('flickr_url', 'unknown'),
-                        image_url,  # Store URL as path
-                        image_url,
-                        json.dumps({
-                            'is_url': data.get('is_url', True),
-                            'id_a': data.get('id_a'),
-                            'cap_a': data.get('cap_a'),
-                            'sim_text': data.get('sim_text'),
-                            'sim_img': data.get('sim_img'),
-                            'source': data.get('source', {})
-                        })
-                    ))
-                except json.JSONDecodeError as e:
-                    print(f"Error parsing line {line_num}: {e}")
-                    continue
-    else:
-        print(f"File not found: {pairs_file}")
-
-    db.commit()
-    
-    # Print summary
-    count = db.execute('SELECT COUNT(*) as count FROM images').fetchone()
-    print(f"Loaded {count['count']} images into database.")
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('login'))
 
 @app.route('/')
+@login_required
 def index():
-    """Main annotation interface."""
+    if current_user.is_admin():
+        return redirect(url_for('admin_dashboard'))
     return render_template('index.html')
 
-@app.route('/api/random_image')
-def get_random_image():
-    """Get a random image for annotation."""
-    db = get_db()
+@app.route('/api/stats')
+@login_required
+def get_stats():
+    if current_user.is_admin():
+        total_images = Image.query.count()
+        total_annotations = Annotation.query.filter_by(is_approved=True).count()
+        total_rejected = Annotation.query.filter_by(is_approved=False, is_reported=False).count()
+        total_reported = Annotation.query.filter_by(is_reported=True).count()
+        return jsonify({
+            'total_images': total_images,
+            'approved_images': total_annotations,
+            'rejected_images': total_rejected,
+            'reported_images': total_reported,
+            'progress_percentage': round((total_annotations + total_rejected + total_reported) / total_images * 100, 1) if total_images > 0 else 0
+        })
     
-    # Get a random image that hasn't been annotated yet
-    image = db.execute('''
-        SELECT i.* FROM images i
-        LEFT JOIN annotations a ON i.id = a.image_id
-        WHERE a.image_id IS NULL
-        ORDER BY RANDOM()
-        LIMIT 1
-    ''').fetchone()
+    total_assigned = Assignment.query.filter_by(user_id=current_user.id).count()
+    completed = Assignment.query.filter_by(user_id=current_user.id, status='completed').count()
+    pending = total_assigned - completed
     
-    # If all images have been annotated, return completion status
-    if not image:
-        return jsonify({'all_complete': True, 'message': 'All images have been annotated!'}), 200
+    return jsonify({
+        'total_images': total_assigned,
+        'approved_images': completed,
+        'rejected_images': 0,
+        'reported_images': 0,
+        'progress_percentage': round(completed / total_assigned * 100, 1) if total_assigned > 0 else 0
+    })
+
+@app.route('/api/next_image')
+@login_required
+def get_next_image():
+    assignment = Assignment.query.filter_by(
+        user_id=current_user.id,
+        status='pending'
+    ).first()
     
-    # Get existing annotation if any
-    annotation = db.execute('''
-        SELECT * FROM annotations
-        WHERE image_id = ?
-        ORDER BY annotated_at DESC
-        LIMIT 1
-    ''', (image['id'],)).fetchone()
+    if not assignment:
+        return jsonify({'all_complete': True, 'message': 'All assigned images have been annotated!'})
     
-    # Format image source
-    if image['image_path'].startswith('http'):
-        image_src = image['image_path']
-    else:
-        image_src = f"/api/image/{image['image_path']}"
+    image = assignment.image
+    
+    return jsonify({
+        'id': image.id,
+        'assignment_id': assignment.id,
+        'source': image.source,
+        'image': image.image_url if image.image_url else image.image_path,
+        'image_url': image.image_url,
+        'metadata': json.loads(image.original_meta) if image.original_meta else {},
+        'annotation': None
+    })
+
+@app.route('/api/image/<image_id>')
+@login_required
+def get_specific_image(image_id):
+    assignment = Assignment.query.filter_by(
+        user_id=current_user.id,
+        image_id=image_id
+    ).first()
+    
+    if not assignment:
+        return jsonify({'error': 'Image not assigned to you'}), 403
+    
+    image = assignment.image
+    annotation = Annotation.query.filter_by(assignment_id=assignment.id).first()
     
     result = {
-        'id': image['id'],
-        'source': image['source'],
-        'image': image_src,
-        'image_url': image['image_url'],
-        'metadata': json.loads(image['original_meta']) if image['original_meta'] else {},
+        'id': image.id,
+        'assignment_id': assignment.id,
+        'source': image.source,
+        'image': image.image_url if image.image_url else image.image_path,
+        'image_url': image.image_url,
+        'metadata': json.loads(image.original_meta) if image.original_meta else {},
         'annotation': None
     }
     
     if annotation:
         result['annotation'] = {
-            'is_approved': bool(annotation['is_approved']) if annotation['is_approved'] is not None else None,
-            'is_reported': bool(annotation['is_reported']) if annotation['is_reported'] is not None else None,
-            'question': annotation['question'],
-            'answer': annotation['answer'],
-            'annotated_at': annotation['annotated_at']
+            'is_approved': annotation.is_approved,
+            'is_reported': annotation.is_reported,
+            'question': annotation.question,
+            'answer': annotation.answer,
+            'annotated_at': annotation.annotated_at.isoformat() if annotation.annotated_at else None
         }
     
     return jsonify(result)
 
-@app.route('/api/image/<image_id>')
-def get_specific_image(image_id):
-    """Get a specific image by ID."""
-    try:
-        db = get_db()
-        
-        # Get the image
-        image = db.execute('''
-            SELECT * FROM images WHERE id = ?
-        ''', (image_id,)).fetchone()
-        
-        if not image:
-            return jsonify({'error': 'Image not found'}), 404
-        
-        # Get existing annotation if any
-        annotation = db.execute('''
-            SELECT * FROM annotations WHERE image_id = ? 
-            ORDER BY annotated_at DESC LIMIT 1
-        ''', (image_id,)).fetchone()
-        
-        # Format image source
-        if image['image_path'].startswith('http'):
-            image_src = image['image_path']
-        else:
-            image_src = f"/api/image/{image['image_path']}"
-        
-        result = {
-            'id': image['id'],
-            'source': image['source'],
-            'image': image_src,
-            'image_url': image['image_url'],
-            'metadata': json.loads(image['original_meta']) if image['original_meta'] else {},
-            'annotation': None
-        }
-        
-        if annotation:
-            result['annotation'] = {
-                'is_approved': bool(annotation['is_approved']) if annotation['is_approved'] is not None else None,
-                'is_reported': bool(annotation['is_reported']) if annotation['is_reported'] is not None else None,
-                'question': annotation['question'],
-                'answer': annotation['answer'],
-                'annotated_at': annotation['annotated_at']
-            }
-        
-        return jsonify(result)
-        
-    except Exception as e:
-        print(f"Error getting specific image: {e}")
-        return jsonify({'error': 'Failed to get image'}), 500
-
 @app.route('/api/annotate', methods=['POST'])
+@login_required
 def save_annotation():
-    """Save an annotation for an image."""
     data = request.get_json()
     
-    if not data or 'image_id' not in data:
-        return jsonify({'error': 'Missing image_id'}), 400
+    if not data or 'image_id' not in data or 'assignment_id' not in data:
+        return jsonify({'error': 'Missing required fields'}), 400
     
-    image_id = data['image_id']
+    assignment = Assignment.query.filter_by(
+        id=data['assignment_id'],
+        user_id=current_user.id
+    ).first()
+    
+    if not assignment:
+        return jsonify({'error': 'Assignment not found'}), 404
+    
     question = data.get('question', '').strip()
     answer = data.get('answer', '').strip()
     is_rejected = data.get('is_rejected', False)
     
-    # Auto-approve if Q&A is provided, otherwise reject if explicitly rejected
     if question and answer:
         is_approved = True
     elif is_rejected:
@@ -259,240 +181,271 @@ def save_annotation():
     else:
         return jsonify({'error': 'Either provide Q&A or mark as rejected'}), 400
     
-    db = get_db()
+    existing = Annotation.query.filter_by(assignment_id=assignment.id).first()
+    if existing:
+        existing.question = question if question else None
+        existing.answer = answer if answer else None
+        existing.is_approved = is_approved
+        existing.is_reported = False
+        existing.annotated_at = datetime.utcnow()
+    else:
+        image = assignment.image
+        annotation = Annotation(
+            image_id=assignment.image_id,
+            user_id=current_user.id,
+            assignment_id=assignment.id,
+            question=question if question else None,
+            answer=answer if answer else None,
+            is_approved=is_approved,
+            is_reported=False,
+            annotation_pass=image.annotation_count + 1
+        )
+        db.session.add(annotation)
+        image.annotation_count += 1
     
-    # Check if image exists
-    image = db.execute('SELECT id FROM images WHERE id = ?', (image_id,)).fetchone()
-    if not image:
-        return jsonify({'error': 'Image not found'}), 404
-    
-    # Delete any existing annotations for this image_id to ensure uniqueness
-    db.execute('DELETE FROM annotations WHERE image_id = ?', (image_id,))
-    
-    # Insert new annotation
-    db.execute('''
-        INSERT INTO annotations (image_id, is_approved, is_reported, question, answer)
-        VALUES (?, ?, ?, ?, ?)
-    ''', (image_id, is_approved, False, question if question else None, answer if answer else None))
-    
-    db.commit()
+    assignment.status = 'completed'
+    assignment.completed_at = datetime.utcnow()
+    db.session.commit()
     
     return jsonify({'success': True})
 
 @app.route('/api/report', methods=['POST'])
+@login_required
 def report_image():
-    """Report an image that won't load or has issues."""
     data = request.get_json()
     
-    if not data or 'image_id' not in data:
-        return jsonify({'error': 'Missing image_id'}), 400
+    if not data or 'image_id' not in data or 'assignment_id' not in data:
+        return jsonify({'error': 'Missing required fields'}), 400
     
-    image_id = data['image_id']
+    assignment = Assignment.query.filter_by(
+        id=data['assignment_id'],
+        user_id=current_user.id
+    ).first()
     
-    db = get_db()
+    if not assignment:
+        return jsonify({'error': 'Assignment not found'}), 404
     
-    # Check if image exists
-    image = db.execute('SELECT id FROM images WHERE id = ?', (image_id,)).fetchone()
-    if not image:
-        return jsonify({'error': 'Image not found'}), 404
+    existing = Annotation.query.filter_by(assignment_id=assignment.id).first()
+    if existing:
+        existing.is_reported = True
+        existing.is_approved = False
+        existing.annotated_at = datetime.utcnow()
+    else:
+        image = assignment.image
+        annotation = Annotation(
+            image_id=assignment.image_id,
+            user_id=current_user.id,
+            assignment_id=assignment.id,
+            is_approved=False,
+            is_reported=True,
+            annotation_pass=image.annotation_count + 1
+        )
+        db.session.add(annotation)
+        image.annotation_count += 1
     
-    # Delete any existing annotations for this image_id to ensure uniqueness
-    db.execute('DELETE FROM annotations WHERE image_id = ?', (image_id,))
+    assignment.status = 'completed'
+    assignment.completed_at = datetime.utcnow()
+    db.session.commit()
     
-    # Insert report annotation
-    db.execute('''
-        INSERT INTO annotations (image_id, is_approved, is_reported, question, answer)
-        VALUES (?, ?, ?, ?, ?)
-    ''', (image_id, False, True, None, None))
-    
-    db.commit()
-    
-    return jsonify({'success': True, 'message': 'Image reported successfully'})
-
-@app.route('/api/stats')
-def get_stats():
-    """Get annotation statistics."""
-    try:
-        db = get_db()
-        
-        # Check if tables exist
-        cursor = db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('images', 'annotations')")
-        tables = [row[0] for row in cursor.fetchall()]
-        
-        if 'images' not in tables:
-            return jsonify({
-                'total_images': 0,
-                'approved_images': 0,
-                'rejected_images': 0,
-                'reported_images': 0,
-                'progress_percentage': 0
-            })
-        
-        total_images = db.execute('SELECT COUNT(*) as count FROM images').fetchone()['count']
-        
-        if 'annotations' not in tables:
-            return jsonify({
-                'total_images': total_images,
-                'approved_images': 0,
-                'rejected_images': 0,
-                'reported_images': 0,
-                'progress_percentage': 0
-            })
-        
-        approved_images = db.execute('SELECT COUNT(DISTINCT image_id) as count FROM annotations WHERE is_approved = 1').fetchone()['count']
-        rejected_images = db.execute('SELECT COUNT(DISTINCT image_id) as count FROM annotations WHERE is_approved = 0 AND (is_reported = 0 OR is_reported IS NULL)').fetchone()['count']
-        
-        try:
-            reported_images = db.execute('SELECT COUNT(DISTINCT image_id) as count FROM annotations WHERE is_reported = 1').fetchone()['count']
-        except:
-            reported_images = 0
-            
-        # Calculate total processed images
-        total_processed = approved_images + rejected_images + reported_images
-            
-        return jsonify({
-            'total_images': total_images,
-            'approved_images': approved_images,
-            'rejected_images': rejected_images,
-            'reported_images': reported_images,
-            'progress_percentage': round((total_processed / total_images) * 100, 1) if total_images > 0 else 0
-        })
-        
-    except Exception as e:
-        print(f"Error in get_stats: {e}")
-        return jsonify({
-            'total_images': 0,
-            'approved_images': 0,
-            'rejected_images': 0,
-            'reported_images': 0,
-            'progress_percentage': 0
-        })
+    return jsonify({'success': True})
 
 @app.route('/api/annotated_images')
+@login_required
 def get_annotated_images():
-    """Get annotated images for carousel display."""
-    try:
-        db = get_db()
-        
-        # Check if tables exist
-        cursor = db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('images', 'annotations')")
-        tables = [row[0] for row in cursor.fetchall()]
-        
-        if 'images' not in tables or 'annotations' not in tables:
-            return jsonify([])
-        
-        results = db.execute('''
-            SELECT DISTINCT i.id, i.source, i.image_path, i.image_url, i.original_meta,
-                   a.is_approved, a.is_reported, a.question, a.answer, a.annotated_at
-            FROM images i
-            INNER JOIN annotations a ON i.id = a.image_id
-            ORDER BY a.annotated_at DESC
-            LIMIT 50
-        ''').fetchall()
-        
-        images = []
-        for row in results:
-            image = {
-                'id': row['id'],
-                'source': row['source'],
-                'image': row['image_path'],
-                'meta': json.loads(row['original_meta']) if row['original_meta'] else {},
-                'annotation': {
-                    'is_approved': bool(row['is_approved']) if row['is_approved'] is not None else None,
-                    'is_reported': bool(row['is_reported']) if row['is_reported'] is not None else None,
-                    'question': row['question'],
-                    'answer': row['answer'],
-                    'annotated_at': row['annotated_at']
-                }
-            }
-            images.append(image)
-        
-        return jsonify(images)
-        
-    except Exception as e:
-        print(f"Error in get_annotated_images: {e}")
-        return jsonify([])
-
-@app.route('/api/export/all')
-def api_export_all():
-    """API endpoint to export all images as JSON data."""
-    try:
-        db = get_db()
-        results = db.execute('''
-            SELECT 
-                i.*,
-                a.is_approved,
-                a.is_reported,
-                a.question,
-                a.answer,
-                a.annotated_at
-            FROM images i
-            LEFT JOIN (
-                SELECT a1.*
-                FROM annotations a1
-                INNER JOIN (
-                    SELECT image_id, MAX(annotated_at) AS latest_annotated_at
-                    FROM annotations
-                    GROUP BY image_id
-                ) a2
-                ON a1.image_id = a2.image_id AND a1.annotated_at = a2.latest_annotated_at
-            ) a ON i.id = a.image_id
-            ORDER BY i.id
-        ''').fetchall()
-        
-        all_images = []
-        for row in results:
-            image_data = {
-                'id': row['id'],
-                'image_url': row['image_url'],
-                'annotation_status': {
-                    'is_approved': bool(row['is_approved']) if row['is_approved'] is not None else None,
-                    'is_reported': bool(row['is_reported']) if row['is_reported'] is not None else None,
-                    'question': row['question'],
-                    'answer': row['answer'],
-                    'annotated_at': row['annotated_at']
-                } if (row['is_approved'] is not None or row['is_reported'] is not None or 
-                      row['question'] or row['answer']) else None
-            }
-            all_images.append(image_data)
-        
-        return jsonify(all_images)
+    assignments = Assignment.query.filter_by(
+        user_id=current_user.id,
+        status='completed'
+    ).order_by(Assignment.completed_at.desc()).limit(50).all()
     
-    except Exception as e:
-        print(f"Error in api_export_all: {e}")
-        return jsonify({'error': str(e)}), 500
+    images = []
+    for assignment in assignments:
+        image = assignment.image
+        annotation = Annotation.query.filter_by(assignment_id=assignment.id).first()
+        
+        images.append({
+            'id': image.id,
+            'assignment_id': assignment.id,
+            'source': image.source,
+            'image': image.image_url if image.image_url else image.image_path,
+            'annotation': {
+                'is_approved': annotation.is_approved if annotation else None,
+                'is_reported': annotation.is_reported if annotation else None,
+                'question': annotation.question if annotation else None,
+                'answer': annotation.answer if annotation else None,
+                'annotated_at': annotation.annotated_at.isoformat() if annotation and annotation.annotated_at else None
+            } if annotation else None
+        })
+    
+    return jsonify(images)
 
-def cleanup_duplicates():
-    """Remove duplicate annotations, keeping only the most recent one per image_id."""
-    with app.app_context():
-        db = get_db()
+@app.route('/admin')
+@login_required
+@admin_required
+def admin_dashboard():
+    total_images = Image.query.count()
+    total_users = User.query.filter_by(role='annotator').count()
+    total_assignments = Assignment.query.count()
+    completed_assignments = Assignment.query.filter_by(status='completed').count()
+    unassigned_images = Image.query.filter(~Image.id.in_(
+        db.session.query(Assignment.image_id)
+    )).count()
+    
+    users = User.query.filter_by(role='annotator').all()
+    user_stats = []
+    for user in users:
+        assigned = Assignment.query.filter_by(user_id=user.id).count()
+        completed = Assignment.query.filter_by(user_id=user.id, status='completed').count()
         
-        duplicates_count = db.execute('''
-            SELECT COUNT(*) - COUNT(DISTINCT image_id) as dup_count
-            FROM annotations
-        ''').fetchone()[0]
+        submitted = Annotation.query.filter_by(user_id=user.id, is_approved=True).count()
+        rejected = Annotation.query.filter_by(user_id=user.id, is_approved=False, is_reported=False).count()
+        reported = Annotation.query.filter_by(user_id=user.id, is_reported=True).count()
         
-        if duplicates_count > 0:
-            print(f"Found {duplicates_count} duplicate annotations. Cleaning up...")
+        user_stats.append({
+            'id': user.id,
+            'username': user.username,
+            'assigned': assigned,
+            'completed': completed,
+            'pending': assigned - completed,
+            'submitted': submitted,
+            'rejected': rejected,
+            'reported': reported
+        })
+    
+    return render_template('admin/dashboard.html',
+        total_images=total_images,
+        total_users=total_users,
+        total_assignments=total_assignments,
+        completed_assignments=completed_assignments,
+        unassigned_images=unassigned_images,
+        user_stats=user_stats
+    )
+
+@app.route('/admin/users')
+@login_required
+@admin_required
+def admin_users():
+    users = User.query.all()
+    return render_template('admin/users.html', users=users)
+
+@app.route('/admin/users/create', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def admin_create_user():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        role = request.form.get('role', 'annotator')
+        
+        if User.query.filter_by(username=username).first():
+            flash('Username already exists')
+            return render_template('admin/create_user.html')
+        
+        user = User(username=username, role=role)
+        user.set_password(password)
+        db.session.add(user)
+        db.session.commit()
+        
+        flash(f'User {username} created successfully')
+        return redirect(url_for('admin_users'))
+    
+    return render_template('admin/create_user.html')
+
+@app.route('/admin/users/<user_id>/reset-password', methods=['POST'])
+@login_required
+@admin_required
+def admin_reset_password(user_id):
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    new_password = request.form.get('new_password')
+    if not new_password:
+        flash('Password is required')
+        return redirect(url_for('admin_users'))
+    
+    user.set_password(new_password)
+    db.session.commit()
+    
+    flash(f'Password reset for {user.username}')
+    return redirect(url_for('admin_users'))
+
+@app.route('/admin/assignments')
+@login_required
+@admin_required
+def admin_assignments():
+    users = User.query.filter_by(role='annotator').all()
+    unassigned_count = Image.query.filter(~Image.id.in_(
+        db.session.query(Assignment.image_id)
+    )).count()
+    return render_template('admin/assignments.html', users=users, unassigned_count=unassigned_count)
+
+@app.route('/admin/assignments/create', methods=['POST'])
+@login_required
+@admin_required
+def admin_create_assignments():
+    user_id = request.form.get('user_id')
+    count = int(request.form.get('count', 100))
+    
+    user = User.query.get(user_id)
+    if not user:
+        flash('User not found')
+        return redirect(url_for('admin_assignments'))
+    
+    unassigned_images = Image.query.filter(~Image.id.in_(
+        db.session.query(Assignment.image_id)
+    )).limit(count).all()
+    
+    created = 0
+    for image in unassigned_images:
+        assignment = Assignment(user_id=user_id, image_id=image.id)
+        db.session.add(assignment)
+        created += 1
+    
+    db.session.commit()
+    flash(f'Assigned {created} images to {user.username}')
+    return redirect(url_for('admin_assignments'))
+
+def init_db():
+    db.create_all()
+    print("Database tables created")
+
+def load_images_from_json():
+    images_file = 'images.json'
+    if not os.path.exists(images_file):
+        print(f"No {images_file} found, skipping image load")
+        return
+    
+    existing_count = Image.query.count()
+    if existing_count > 0:
+        print(f"Database already contains {existing_count} images")
+        return
+    
+    print(f"Loading images from {images_file}...")
+    with open(images_file, 'r') as f:
+        data = json.load(f)
+        for idx, img in enumerate(data.get('images', [])):
+            image_id = f"{idx:06d}"
+            image_url = img.get('image_url', '')
             
-            db.execute('''
-                DELETE FROM annotations
-                WHERE id NOT IN (
-                    SELECT MAX(id)
-                    FROM annotations
-                    GROUP BY image_id
-                )
-            ''')
-            
-            db.commit()
-            print(f"Cleaned up {duplicates_count} duplicate annotations")
-        else:
-            print("No duplicate annotations found")
+            image = Image(
+                id=image_id,
+                source=data.get('flickr_url', 'unknown'),
+                image_path=image_url,
+                image_url=image_url,
+                original_meta=json.dumps({
+                    'is_url': data.get('is_url', True),
+                    'id_a': data.get('id_a'),
+                    'cap_a': data.get('cap_a'),
+                })
+            )
+            db.session.add(image)
+    
+    db.session.commit()
+    print(f"Loaded {Image.query.count()} images")
 
 if __name__ == '__main__':
     with app.app_context():
         init_db()
-        load_images()
-        cleanup_duplicates()
+        load_images_from_json()
     
     app.run(debug=False, host='0.0.0.0', port=8080)

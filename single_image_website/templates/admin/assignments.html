@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Assignments</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #2c3e50;
+            color: #ecf0f1;
+        }
+        .container { max-width: 800px; margin: 0 auto; padding: 20px; }
+        .header {
+            background: #34495e;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header h1 { color: #ecf0f1; }
+        .header-right { display: flex; align-items: center; gap: 15px; }
+        .nav-links { display: flex; gap: 10px; }
+        .nav-links a {
+            color: #ecf0f1;
+            text-decoration: none;
+            padding: 8px 16px;
+            background: #2980b9;
+            border-radius: 5px;
+        }
+        .nav-links a:hover { background: #3498db; }
+        .logout-btn {
+            background: #e74c3c;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            text-decoration: none;
+        }
+        .logout-btn:hover { background: #c0392b; }
+        .section {
+            background: #34495e;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .section h2 { margin-bottom: 20px; color: #ecf0f1; }
+        .info-box {
+            background: #2980b9;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .info-box strong { font-size: 24px; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        .form-group select, .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #7f8c8d;
+            border-radius: 6px;
+            font-size: 14px;
+            background: #2c3e50;
+            color: #ecf0f1;
+        }
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            width: 100%;
+        }
+        .btn-primary { background: #27ae60; color: white; }
+        .btn-primary:hover { background: #229954; }
+        .flash-message {
+            background: #27ae60;
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Assignments</h1>
+            <div class="header-right">
+                <div class="nav-links">
+                    <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+                    <a href="{{ url_for('admin_users') }}">Users</a>
+                    <a href="{{ url_for('admin_assignments') }}">Assignments</a>
+                </div>
+                <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+            </div>
+        </div>
+
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="flash-message">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="section">
+            <h2>Assign Images to Users</h2>
+            
+            <div class="info-box">
+                <strong>{{ unassigned_count }}</strong> images available for assignment
+            </div>
+
+            {% if users %}
+            <form method="POST" action="{{ url_for('admin_create_assignments') }}">
+                <div class="form-group">
+                    <label for="user_id">Select User</label>
+                    <select id="user_id" name="user_id" required>
+                        <option value="">-- Select a user --</option>
+                        {% for user in users %}
+                        <option value="{{ user.id }}">{{ user.username }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="count">Number of Images to Assign</label>
+                    <input type="number" id="count" name="count" value="100" min="1" max="{{ unassigned_count }}" required>
+                </div>
+                <button type="submit" class="btn btn-primary" {% if unassigned_count == 0 %}disabled{% endif %}>
+                    Assign Images
+                </button>
+            </form>
+            {% else %}
+            <p style="text-align: center; color: #bdc3c7;">No annotators available. <a href="{{ url_for('admin_create_user') }}" style="color: #3498db;">Create one first.</a></p>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

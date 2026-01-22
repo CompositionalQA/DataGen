@@ -3,48 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Single Image Annotation Tool</title>
+    <title>Annotation Tool</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #2c3e50;
             color: #ecf0f1;
         }
-
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-
+        .container { max-width: 1000px; margin: 0 auto; padding: 20px; }
         .header {
             background: #34495e;
             padding: 20px;
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.3);
             margin-bottom: 20px;
-            text-align: center;
-        }
-
-        .header h1 {
-            color: #ecf0f1;
-            margin-bottom: 10px;
-        }
-
-        .stats {
             display: flex;
-            gap: 20px;
-            justify-content: center;
-            flex-wrap: wrap;
-            margin-top: 15px;
+            justify-content: space-between;
+            align-items: center;
         }
-
+        .header h1 { color: #ecf0f1; }
+        .header-right { display: flex; align-items: center; gap: 15px; }
+        .user-info { color: #bdc3c7; }
+        .logout-btn {
+            background: #e74c3c;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        .logout-btn:hover { background: #c0392b; }
+        .stats { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; margin: 15px 0; }
         .stat-item {
             background: #2980b9;
             color: white;
@@ -52,62 +44,41 @@
             border-radius: 5px;
             font-weight: bold;
         }
-
         .progress-container {
-            margin-top: 20px;
             background: #34495e;
             border-radius: 10px;
             padding: 15px;
+            margin-bottom: 20px;
         }
-
         .progress-bar {
             width: 100%;
             height: 30px;
             background: #2c3e50;
             border-radius: 15px;
             overflow: hidden;
-            position: relative;
             margin-bottom: 10px;
         }
-
         .progress-fill {
             height: 100%;
             background: linear-gradient(90deg, #2980b9, #27ae60);
             border-radius: 15px;
             transition: width 0.3s ease;
         }
-
-        .progress-percentage {
-            text-align: center;
-            color: #bdc3c7;
-            font-size: 14px;
-            margin-bottom: 10px;
-        }
-
+        .progress-percentage { text-align: center; color: #bdc3c7; font-size: 14px; }
         .main-content {
             display: grid;
             grid-template-columns: 1fr 400px;
             gap: 20px;
             margin-bottom: 20px;
         }
-
-        .image-section {
+        .image-section, .annotation-section {
             background: #34495e;
             padding: 20px;
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.3);
         }
-
-        .image-wrapper {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-
-        .image-wrapper h3 {
-            margin-bottom: 10px;
-            color: #ecf0f1;
-        }
-
+        .image-wrapper { text-align: center; margin-bottom: 20px; }
+        .image-wrapper h3 { margin-bottom: 10px; color: #ecf0f1; }
         .image-wrapper img {
             max-width: 100%;
             max-height: 400px;
@@ -116,41 +87,10 @@
             cursor: pointer;
             transition: transform 0.2s;
         }
-
-        .image-wrapper img:hover {
-            transform: scale(1.05);
-        }
-
-        .image-urls {
-            margin-top: 10px;
-            font-size: 12px;
-            color: #666;
-            word-break: break-all;
-        }
-
-        .annotation-section {
-            background: #34495e;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-        }
-
-        .annotation-section h2 {
-            margin-bottom: 20px;
-            color: #ecf0f1;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: bold;
-            color: #ecf0f1;
-        }
-
+        .image-wrapper img:hover { transform: scale(1.05); }
+        .annotation-section h2 { margin-bottom: 20px; color: #ecf0f1; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 8px; font-weight: bold; color: #ecf0f1; }
         .form-group textarea {
             width: 100%;
             padding: 10px;
@@ -162,14 +102,7 @@
             background: #2c3e50;
             color: #ecf0f1;
         }
-
-        .action-buttons {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-
+        .action-buttons { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
         .btn {
             padding: 12px 24px;
             border: none;
@@ -179,41 +112,13 @@
             transition: all 0.3s;
             font-size: 14px;
         }
-
-        .btn-primary {
-            background: #3498db;
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: #2980b9;
-        }
-
-        .btn-reject {
-            background: #e74c3c;
-            color: white;
-        }
-
-        .btn-reject:hover {
-            background: #c0392b;
-        }
-
-        .btn-secondary {
-            background: #95a5a6;
-            color: white;
-        }
-
-        .btn-secondary:hover {
-            background: #7f8c8d;
-        }
-
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: #95a5a6;
-            font-size: 18px;
-        }
-
+        .btn-primary { background: #3498db; color: white; }
+        .btn-primary:hover { background: #2980b9; }
+        .btn-reject { background: #e74c3c; color: white; }
+        .btn-reject:hover { background: #c0392b; }
+        .btn-secondary { background: #95a5a6; color: white; }
+        .btn-secondary:hover { background: #7f8c8d; }
+        .loading { text-align: center; padding: 40px; color: #95a5a6; font-size: 18px; }
         .carousel-section {
             background: #34495e;
             padding: 20px;
@@ -221,19 +126,8 @@
             box-shadow: 0 2px 10px rgba(0,0,0,0.3);
             margin-top: 20px;
         }
-
-        .carousel-section h2 {
-            color: #ecf0f1;
-            margin-bottom: 15px;
-        }
-
-        .carousel-container {
-            display: flex;
-            gap: 15px;
-            overflow-x: auto;
-            padding: 10px 0;
-        }
-
+        .carousel-section h2 { color: #ecf0f1; margin-bottom: 15px; }
+        .carousel-container { display: flex; gap: 15px; overflow-x: auto; padding: 10px 0; }
         .carousel-item {
             min-width: 150px;
             background: #2c3e50;
@@ -242,90 +136,25 @@
             cursor: pointer;
             transition: transform 0.2s, box-shadow 0.2s;
         }
-
-        .carousel-item:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-        }
-
-        .carousel-item img {
-            width: 100%;
-            height: 100px;
-            object-fit: cover;
-            border-radius: 5px;
-            margin-bottom: 5px;
-        }
-
-        .carousel-item .status {
-            font-size: 11px;
-            padding: 3px 6px;
-            border-radius: 3px;
-            margin-top: 5px;
-            text-align: center;
-        }
-
-        .carousel-item .status.approved {
-            background: #27ae60;
-            color: white;
-        }
-
-        .carousel-item .status.rejected {
-            background: #e74c3c;
-            color: white;
-        }
-
-        .carousel-item .status.reported {
-            background: #f39c12;
-            color: white;
-        }
-
-        .message {
-            padding: 15px;
-            margin: 15px 0;
-            border-radius: 8px;
-            animation: slideIn 0.3s ease;
-        }
-
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .error {
-            background: #fadbd8;
-            color: #e74c3c;
-            border-left: 4px solid #e74c3c;
-        }
-
-        .success {
-            background: #eafaf1;
-            color: #27ae60;
-            border-left: 4px solid #27ae60;
-        }
-
-        .info {
-            background: #ebf5fb;
-            color: #3498db;
-            border-left: 4px solid #3498db;
-        }
-
+        .carousel-item:hover { transform: translateY(-5px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+        .carousel-item img { width: 100%; height: 100px; object-fit: cover; border-radius: 5px; margin-bottom: 5px; }
+        .carousel-item .status { font-size: 11px; padding: 3px 6px; border-radius: 3px; margin-top: 5px; text-align: center; }
+        .carousel-item .status.approved { background: #27ae60; color: white; }
+        .carousel-item .status.rejected { background: #e74c3c; color: white; }
+        .carousel-item .status.reported { background: #f39c12; color: white; }
+        .message { padding: 15px; margin: 15px 0; border-radius: 8px; animation: slideIn 0.3s ease; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        .error { background: #fadbd8; color: #e74c3c; border-left: 4px solid #e74c3c; }
+        .success { background: #eafaf1; color: #27ae60; border-left: 4px solid #27ae60; }
+        .info { background: #ebf5fb; color: #3498db; border-left: 4px solid #3498db; }
         .image-modal {
             display: none;
             position: fixed;
             z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
+            left: 0; top: 0;
+            width: 100%; height: 100%;
             background-color: rgba(0,0,0,0.9);
         }
-
         .modal-content {
             margin: auto;
             display: block;
@@ -334,38 +163,41 @@
             max-height: 80%;
             object-fit: contain;
         }
-
         .modal-close {
             position: absolute;
-            top: 15px;
-            right: 35px;
+            top: 15px; right: 35px;
             color: #f1f1f1;
             font-size: 40px;
             font-weight: bold;
             cursor: pointer;
         }
-
-        .modal-close:hover {
-            color: #bbb;
+        .modal-close:hover { color: #bbb; }
+        #completion-screen {
+            text-align: center;
+            padding: 60px 20px;
+            background: #34495e;
+            border-radius: 10px;
+            margin: 20px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
         }
-
-        @media (max-width: 768px) {
-            .main-content {
-                grid-template-columns: 1fr;
-            }
-        }
+        @media (max-width: 768px) { .main-content { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>Single Image Annotation Tool</h1>
-            <div class="progress-container">
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
-                </div>
-                <div class="progress-percentage" id="progress-percentage">0% Complete</div>
+            <h1>Annotation Tool</h1>
+            <div class="header-right">
+                <span class="user-info">{{ current_user.username }}</span>
+                <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
             </div>
+        </div>
+
+        <div class="progress-container">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+            </div>
+            <div class="progress-percentage" id="progress-percentage">0% Complete</div>
             <div class="stats" id="stats">
                 <div class="stat-item">Loading stats...</div>
             </div>
@@ -373,86 +205,51 @@
 
         <div id="message-area"></div>
 
-        <!-- Completion Screen -->
-        <div id="completion-screen" style="display: none; text-align: center; padding: 60px 20px; background: #34495e; border-radius: 10px; margin: 20px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.3);">
-            <div style="font-size: 80px; margin-bottom: 20px;">🎉</div>
-            <h2 style="color: #ecf0f1; margin-bottom: 15px;">Congratulations!</h2>
-            <p style="color: #bdc3c7; font-size: 18px; margin-bottom: 30px;">You've annotated all images in the dataset!</p>
-            <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
-                <button class="btn btn-primary" onclick="exportAllImages()" style="padding: 15px 30px; font-size: 16px;">
-                    📥 Export All Annotations
-                </button>
-            </div>
-            <p style="color: #7f8c8d; font-size: 14px; margin-top: 30px;">
-                You can still review and edit annotations using the carousel below.
-            </p>
+        <div id="completion-screen" style="display: none;">
+            <div style="font-size: 80px; margin-bottom: 20px;">&#127881;</div>
+            <h2 style="color: #ecf0f1; margin-bottom: 15px;">All Done!</h2>
+            <p style="color: #bdc3c7; font-size: 18px;">You've completed all your assigned images.</p>
         </div>
 
-        <div class="main-content">
+        <div class="main-content" id="main-content">
             <div class="image-section">
-                <div id="loading" class="loading">
-                    Loading image...
-                </div>
-                
+                <div id="loading" class="loading">Loading image...</div>
                 <div id="image-content" style="display: none;">
                     <div class="image-wrapper">
                         <h3>Image</h3>
                         <img id="image" src="" alt="Image" onclick="openModal(this)">
-                        <div class="image-urls" id="url"></div>
                     </div>
-                    
-                    <div id="image-metadata" style="margin-top: 15px; padding: 10px; background: #2c3e50; border-radius: 5px; display: none;">
-                        <div><strong>Caption:</strong> <span id="caption" style="color: #ecf0f1;"></span></div>
-                    </div>
-
                     <div class="action-buttons" style="margin-top: 20px;">
-                        <button id="btn-reject" class="btn btn-reject" onclick="rejectImage()">
-                            ✗ Reject Image
-                        </button>
-                        <button id="btn-report" class="btn btn-secondary" onclick="reportImage()">
-                            ⚠️ Report Issues
-                        </button>
-                        <button id="export-all" class="btn btn-primary" onclick="exportAllImages()">
-                            📥 Export All
-                        </button>
+                        <button id="btn-reject" class="btn btn-reject" onclick="rejectImage()">Reject Image</button>
+                        <button id="btn-report" class="btn btn-secondary" onclick="reportImage()">Report Issues</button>
                     </div>
-                    <p style="font-size: 12px; color: #bdc3c7; margin-top: 10px; text-align: center;">
-                        Images are automatically approved when Q&A is submitted
-                    </p>
                 </div>
             </div>
 
             <div class="annotation-section">
                 <h2>Question & Answer</h2>
-                
-                <div class="qa-section">
-                    <div class="form-group">
-                        <label for="question">Question:</label>
-                        <textarea id="question" placeholder="Enter a question about this image..."></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label for="answer">Answer:</label>
-                        <textarea id="answer" placeholder="Enter the answer to your question..."></textarea>
-                    </div>
-                    <div class="form-group">
-                        <button id="submit-qa" class="btn btn-primary" onclick="saveAnnotation()" style="width: 100%; margin-top: 10px;">
-                            ✓ Submit Q&A (Auto-approve)
-                        </button>
-                    </div>
+                <div class="form-group">
+                    <label for="question">Question:</label>
+                    <textarea id="question" placeholder="Enter a question about this image..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="answer">Answer:</label>
+                    <textarea id="answer" placeholder="Enter the answer to your question..."></textarea>
+                </div>
+                <div class="form-group">
+                    <button id="submit-qa" class="btn btn-primary" onclick="saveAnnotation()" style="width: 100%;">Submit Q&A</button>
                 </div>
             </div>
         </div>
 
-        <!-- Annotated Images Carousel -->
         <div class="carousel-section">
-            <h2>Recently Annotated Images</h2>
+            <h2>Your Recent Annotations</h2>
             <div class="carousel-container" id="carousel-container">
                 <div class="carousel-item">Loading...</div>
             </div>
         </div>
     </div>
 
-    <!-- Image Modal -->
     <div id="image-modal" class="image-modal" onclick="closeModal()">
         <span class="modal-close" onclick="closeModal()">&times;</span>
         <img class="modal-content" id="modal-image">
@@ -460,10 +257,9 @@
 
     <script>
         let currentImage = null;
-        let imageHistory = [];
+        let currentAssignmentId = null;
         let isSubmitting = false;
 
-        // Load initial data
         document.addEventListener('DOMContentLoaded', function() {
             loadStats();
             loadNextImage();
@@ -471,87 +267,27 @@
         });
 
         function disableActionButtons() {
-            const buttons = ['btn-reject', 'btn-report', 'submit-qa'];
-            buttons.forEach(buttonId => {
-                const button = document.getElementById(buttonId);
-                if (button) {
-                    button.disabled = true;
-                    button.style.opacity = '0.5';
-                    button.style.cursor = 'not-allowed';
-                }
+            ['btn-reject', 'btn-report', 'submit-qa'].forEach(id => {
+                const btn = document.getElementById(id);
+                if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; }
             });
         }
 
         function enableActionButtons() {
-            const buttons = ['btn-reject', 'btn-report', 'submit-qa'];
-            buttons.forEach(buttonId => {
-                const button = document.getElementById(buttonId);
-                if (button) {
-                    button.disabled = false;
-                    button.style.opacity = '1';
-                    button.style.cursor = 'pointer';
-                }
+            ['btn-reject', 'btn-report', 'submit-qa'].forEach(id => {
+                const btn = document.getElementById(id);
+                if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
             });
-        }
-
-        async function loadSpecificImage(imageId) {
-            try {
-                if (currentImage) {
-                    imageHistory.push(currentImage);
-                    if (imageHistory.length > 10) {
-                        imageHistory.shift();
-                    }
-                }
-
-                disableActionButtons();
-                document.getElementById('loading').style.display = 'block';
-                document.getElementById('image-content').style.display = 'none';
-                document.getElementById('completion-screen').style.display = 'none';
-                document.querySelector('.main-content').style.display = 'grid';
-                clearForm();
-
-                const response = await fetch(`/api/image/${imageId}`);
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
-                const image = await response.json();
-                
-                if (image.error) {
-                    showMessage(image.error, 'error');
-                    enableActionButtons();
-                    return;
-                }
-                
-                currentImage = image;
-                displayImage(image);
-                
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('image-content').style.display = 'block';
-                enableActionButtons();
-                
-            } catch (error) {
-                console.error('Error loading specific image:', error);
-                showMessage('Error loading image', 'error');
-                document.getElementById('loading').style.display = 'none';
-                enableActionButtons();
-            }
         }
 
         async function loadStats() {
             try {
                 const response = await fetch('/api/stats');
                 const stats = await response.json();
-                
-                const statsHtml = `
-                    <div class="stat-item">Total: ${stats.total_images}</div>
-                    <div class="stat-item">Approved: ${stats.approved_images}</div>
-                    <div class="stat-item">Rejected: ${stats.rejected_images}</div>
-                    <div class="stat-item">Reported: ${stats.reported_images}</div>
+                document.getElementById('stats').innerHTML = `
+                    <div class="stat-item">Assigned: ${stats.total_images}</div>
+                    <div class="stat-item">Completed: ${stats.approved_images}</div>
                 `;
-                
-                document.getElementById('stats').innerHTML = statsHtml;
                 document.getElementById('progress-fill').style.width = `${stats.progress_percentage}%`;
                 document.getElementById('progress-percentage').textContent = `${stats.progress_percentage}% Complete`;
             } catch (error) {
@@ -560,51 +296,37 @@
         }
 
         async function loadNextImage() {
-            if (currentImage) {
-                imageHistory.push(currentImage);
-                if (imageHistory.length > 10) {
-                    imageHistory.shift();
-                }
-            }
-            
             disableActionButtons();
-            
             document.getElementById('loading').style.display = 'block';
             document.getElementById('image-content').style.display = 'none';
             document.getElementById('completion-screen').style.display = 'none';
+            document.getElementById('main-content').style.display = 'grid';
             clearForm();
-            
+
             try {
-                const response = await fetch('/api/random_image');
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
+                const response = await fetch('/api/next_image');
                 const image = await response.json();
-                
+
                 if (image.all_complete) {
                     document.getElementById('loading').style.display = 'none';
                     document.getElementById('completion-screen').style.display = 'block';
-                    document.querySelector('.main-content').style.display = 'none';
-                    showMessage('🎉 All images have been annotated!', 'success');
+                    document.getElementById('main-content').style.display = 'none';
                     return;
                 }
-                
+
                 if (image.error) {
                     showMessage(image.error, 'error');
                     enableActionButtons();
                     return;
                 }
-                
+
                 currentImage = image;
+                currentAssignmentId = image.assignment_id;
                 displayImage(image);
-                
+
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('image-content').style.display = 'block';
-                document.querySelector('.main-content').style.display = 'grid';
                 enableActionButtons();
-                
             } catch (error) {
                 console.error('Error loading image:', error);
                 showMessage('Error loading image', 'error');
@@ -613,25 +335,38 @@
             }
         }
 
+        async function loadSpecificImage(imageId, assignmentId) {
+            disableActionButtons();
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('image-content').style.display = 'none';
+            clearForm();
+
+            try {
+                const response = await fetch(`/api/image/${imageId}`);
+                const image = await response.json();
+
+                if (image.error) {
+                    showMessage(image.error, 'error');
+                    enableActionButtons();
+                    return;
+                }
+
+                currentImage = image;
+                currentAssignmentId = image.assignment_id;
+                displayImage(image);
+
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('image-content').style.display = 'block';
+                enableActionButtons();
+            } catch (error) {
+                console.error('Error loading specific image:', error);
+                showMessage('Error loading image', 'error');
+                enableActionButtons();
+            }
+        }
+
         function displayImage(image) {
             document.getElementById('image').src = image.image;
-            
-            const urlDiv = document.getElementById('url');
-            if (image.image_url) {
-                urlDiv.innerHTML = `<a href="${image.image_url}" target="_blank" style="color: #3498db;">Original URL</a>`;
-            } else {
-                urlDiv.textContent = '';
-            }
-            
-            // Display metadata if available
-            if (image.metadata && image.metadata.cap_a) {
-                document.getElementById('caption').textContent = image.metadata.cap_a;
-                document.getElementById('image-metadata').style.display = 'block';
-            } else {
-                document.getElementById('image-metadata').style.display = 'none';
-            }
-            
-            // Show existing annotation if any
             if (image.annotation && image.annotation.question) {
                 document.getElementById('question').value = image.annotation.question || '';
                 document.getElementById('answer').value = image.annotation.answer || '';
@@ -639,57 +374,45 @@
         }
 
         async function saveAnnotation() {
-            if (!currentImage || isSubmitting) {
-                if (isSubmitting) return;
-                showMessage('No image loaded', 'error');
-                return;
-            }
+            if (!currentImage || isSubmitting) return;
 
             isSubmitting = true;
             disableActionButtons();
-            
+
             const question = document.getElementById('question').value.trim();
             const answer = document.getElementById('answer').value.trim();
-            
+
             if (!question || !answer) {
                 showMessage('Please provide both question and answer', 'error');
                 isSubmitting = false;
                 enableActionButtons();
                 return;
             }
-            
-            const data = {
-                image_id: currentImage.id,
-                question: question,
-                answer: answer
-            };
-            
+
             try {
                 const response = await fetch('/api/annotate', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(data)
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        image_id: currentImage.id,
+                        assignment_id: currentAssignmentId,
+                        question: question,
+                        answer: answer
+                    })
                 });
-                
+
                 const result = await response.json();
-                
+
                 if (result.success) {
-                    showMessage('Q&A saved and image approved!', 'success');
+                    showMessage('Annotation saved!', 'success');
                     loadStats();
                     loadCarousel();
-                    
-                    setTimeout(() => {
-                        isSubmitting = false;
-                        loadNextImage();
-                    }, 1000);
+                    setTimeout(() => { isSubmitting = false; loadNextImage(); }, 1000);
                 } else {
                     showMessage(result.error || 'Error saving annotation', 'error');
                     isSubmitting = false;
                     enableActionButtons();
                 }
-                
             } catch (error) {
                 console.error('Error saving annotation:', error);
                 showMessage('Error saving annotation', 'error');
@@ -699,41 +422,31 @@
         }
 
         async function rejectImage() {
-            if (!currentImage) {
-                showMessage('No image loaded', 'error');
-                return;
-            }
-            
+            if (!currentImage) return;
             disableActionButtons();
-            
-            const data = {
-                image_id: currentImage.id,
-                is_rejected: true
-            };
-            
+
             try {
                 const response = await fetch('/api/annotate', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(data)
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        image_id: currentImage.id,
+                        assignment_id: currentAssignmentId,
+                        is_rejected: true
+                    })
                 });
-                
+
                 const result = await response.json();
-                
+
                 if (result.success) {
                     showMessage('Image rejected', 'success');
                     loadStats();
                     loadCarousel();
-                    setTimeout(() => {
-                        loadNextImage();
-                    }, 1000);
+                    setTimeout(() => loadNextImage(), 1000);
                 } else {
                     showMessage(result.error || 'Error rejecting image', 'error');
                     enableActionButtons();
                 }
-                
             } catch (error) {
                 console.error('Error rejecting image:', error);
                 showMessage('Error rejecting image', 'error');
@@ -742,38 +455,30 @@
         }
 
         async function reportImage() {
-            if (!currentImage) {
-                showMessage('No image loaded', 'error');
-                return;
-            }
-            
+            if (!currentImage) return;
             disableActionButtons();
-            
+
             try {
                 const response = await fetch('/api/report', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        image_id: currentImage.id
+                        image_id: currentImage.id,
+                        assignment_id: currentAssignmentId
                     })
                 });
-                
+
                 const result = await response.json();
-                
+
                 if (result.success) {
                     showMessage('Image reported', 'success');
                     loadStats();
                     loadCarousel();
-                    setTimeout(() => {
-                        loadNextImage();
-                    }, 1000);
+                    setTimeout(() => loadNextImage(), 1000);
                 } else {
                     showMessage(result.error || 'Error reporting image', 'error');
                     enableActionButtons();
                 }
-                
             } catch (error) {
                 console.error('Error reporting image:', error);
                 showMessage('Error reporting image', 'error');
@@ -781,88 +486,37 @@
             }
         }
 
-        async function exportAllImages() {
-            try {
-                showMessage('Generating export file...', 'info');
-                
-                const response = await fetch('/api/export/all');
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
-                const data = await response.json();
-                
-                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'all_images_export.json';
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-                document.body.removeChild(a);
-                
-                showMessage(`Exported ${data.length} images successfully!`, 'success');
-                
-            } catch (error) {
-                console.error('Error exporting images:', error);
-                showMessage('Error exporting images', 'error');
-            }
-        }
-
         async function loadCarousel() {
             try {
                 const response = await fetch('/api/annotated_images');
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
                 const images = await response.json();
-                
                 const container = document.getElementById('carousel-container');
-                
-                if (!container) {
-                    return;
-                }
-                
+
                 if (!images || images.length === 0) {
-                    container.innerHTML = '<div class="carousel-item">No annotated images yet</div>';
+                    container.innerHTML = '<div class="carousel-item">No annotations yet</div>';
                     return;
                 }
-                
+
                 container.innerHTML = images.map(image => {
-                    let statusClass = '';
-                    let statusText = '';
-                    
+                    let statusClass = 'rejected';
+                    let statusText = 'Rejected';
                     if (image.annotation && image.annotation.is_reported) {
                         statusClass = 'reported';
-                        statusText = '⚠️ Reported';
+                        statusText = 'Reported';
                     } else if (image.annotation && image.annotation.is_approved) {
                         statusClass = 'approved';
-                        statusText = '✅ Approved';
-                    } else {
-                        statusClass = 'rejected';
-                        statusText = '❌ Rejected';
+                        statusText = 'Approved';
                     }
-                    
                     return `
-                        <div class="carousel-item" onclick="loadSpecificImage('${image.id}')" title="Click to view this image">
+                        <div class="carousel-item" onclick="loadSpecificImage('${image.id}', '${image.assignment_id}')">
                             <img src="${image.image || ''}" alt="Image" onerror="this.style.display='none'">
                             <div class="status ${statusClass}">${statusText}</div>
-                            <div style="font-size: 10px; color: #bdc3c7;">${image.id || 'Unknown'}</div>
-                            ${image.annotation && image.annotation.question ? `<div style="font-size: 10px; margin-top: 5px; color: #bdc3c7;"><strong>Q:</strong> ${image.annotation.question.substring(0, 50)}...</div>` : ''}
+                            <div style="font-size: 10px; color: #bdc3c7;">${image.id || ''}</div>
                         </div>
                     `;
                 }).join('');
-                
             } catch (error) {
                 console.error('Error loading carousel:', error);
-                const container = document.getElementById('carousel-container');
-                if (container) {
-                    container.innerHTML = '<div class="carousel-item">Error loading carousel</div>';
-                }
             }
         }
 
@@ -877,17 +531,12 @@
             messageDiv.className = `message ${type}`;
             messageDiv.textContent = message;
             messageArea.appendChild(messageDiv);
-            
-            setTimeout(() => {
-                messageDiv.remove();
-            }, 5000);
+            setTimeout(() => messageDiv.remove(), 5000);
         }
 
         function openModal(img) {
-            const modal = document.getElementById('image-modal');
-            const modalImg = document.getElementById('modal-image');
-            modal.style.display = 'block';
-            modalImg.src = img.src;
+            document.getElementById('image-modal').style.display = 'block';
+            document.getElementById('modal-image').src = img.src;
         }
 
         function closeModal() {
