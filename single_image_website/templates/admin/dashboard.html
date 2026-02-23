@@ -128,6 +128,35 @@
                 <h3>Annotators</h3>
                 <div class="value">{{ total_users }}</div>
             </div>
+            <div class="stat-card">
+                <h3>Approved Annotations</h3>
+                <div class="value" style="color: #27ae60;">{{ total_approved }}</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Download Annotations</h2>
+            <form id="download-form" style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                <div>
+                    <label style="color: #bdc3c7; margin-right: 8px;">Status:</label>
+                    <select name="status" style="padding: 8px; border-radius: 5px; background: #2c3e50; color: #ecf0f1; border: 1px solid #7f8c8d;">
+                        <option value="approved">Approved</option>
+                        <option value="rejected">Rejected</option>
+                        <option value="reported">Reported</option>
+                        <option value="all">All</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="color: #bdc3c7; margin-right: 8px;">Annotator:</label>
+                    <select name="user_id" style="padding: 8px; border-radius: 5px; background: #2c3e50; color: #ecf0f1; border: 1px solid #7f8c8d;">
+                        <option value="all">All Annotators</option>
+                        {% for user in user_stats %}
+                        <option value="{{ user.id }}">{{ user.username }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" style="padding: 10px 20px; background: #27ae60; color: white; border: none; border-radius: 5px; cursor: pointer;">Download JSON</button>
+            </form>
         </div>
 
         <div class="section">
@@ -166,5 +195,14 @@
             </table>
         </div>
     </div>
+
+    <script>
+        document.getElementById('download-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const status = this.querySelector('[name="status"]').value;
+            const userId = this.querySelector('[name="user_id"]').value;
+            window.location.href = `/admin/download?status=${status}&user_id=${userId}`;
+        });
+    </script>
 </body>
 </html>

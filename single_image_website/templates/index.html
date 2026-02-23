@@ -24,6 +24,15 @@
         }
         .header h1 { color: #ecf0f1; }
         .header-right { display: flex; align-items: center; gap: 15px; }
+        .nav-links { display: flex; gap: 10px; }
+        .nav-links a {
+            color: #ecf0f1;
+            text-decoration: none;
+            padding: 8px 16px;
+            background: #2980b9;
+            border-radius: 5px;
+        }
+        .nav-links a:hover { background: #3498db; }
         .user-info { color: #bdc3c7; }
         .logout-btn {
             background: #e74c3c;
@@ -188,6 +197,10 @@
         <div class="header">
             <h1>Annotation Tool</h1>
             <div class="header-right">
+                <div class="nav-links">
+                    <a href="{{ url_for('index') }}">Annotate</a>
+                    <a href="{{ url_for('leaderboard') }}">Leaderboard</a>
+                </div>
                 <span class="user-info">{{ current_user.username }}</span>
                 <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
             </div>
@@ -284,9 +297,12 @@
             try {
                 const response = await fetch('/api/stats');
                 const stats = await response.json();
+                const myStatsResponse = await fetch('/api/my_stats');
+                const myStats = await myStatsResponse.json();
                 document.getElementById('stats').innerHTML = `
                     <div class="stat-item">Assigned: ${stats.total_images}</div>
                     <div class="stat-item">Completed: ${stats.approved_images}</div>
+                    <div class="stat-item" style="background: #27ae60;">Approved: ${myStats.approved_count}</div>
                 `;
                 document.getElementById('progress-fill').style.width = `${stats.progress_percentage}%`;
                 document.getElementById('progress-percentage').textContent = `${stats.progress_percentage}% Complete`;

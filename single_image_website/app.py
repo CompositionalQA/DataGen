@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import os
 import json
-from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
+from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, Response
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from datetime import datetime
 from functools import wraps
@@ -278,6 +278,33 @@ def get_annotated_images():
     
     return jsonify(images)
 
+@app.route('/api/leaderboard')
+@login_required
+def get_leaderboard():
+    users = User.query.filter_by(role='annotator').all()
+    leaderboard = []
+    for user in users:
+        approved_count = Annotation.query.filter_by(user_id=user.id, is_approved=True).count()
+        leaderboard.append({
+            'username': user.username,
+            'approved_count': approved_count
+        })
+    leaderboard.sort(key=lambda x: x['approved_count'], reverse=True)
+    for i, entry in enumerate(leaderboard):
+        entry['rank'] = i + 1
+    return jsonify(leaderboard)
+
+@app.route('/api/my_stats')
+@login_required
+def get_my_stats():
+    approved_count = Annotation.query.filter_by(user_id=current_user.id, is_approved=True).count()
+    return jsonify({'approved_count': approved_count})
+
+@app.route('/leaderboard')
+@login_required
+def leaderboard():
+    return render_template('leaderboard.html')
+
 @app.route('/admin')
 @login_required
 @admin_required
@@ -286,6 +313,7 @@ def admin_dashboard():
     total_users = User.query.filter_by(role='annotator').count()
     total_assignments = Assignment.query.count()
     completed_assignments = Assignment.query.filter_by(status='completed').count()
+    total_approved = Annotation.query.filter_by(is_approved=True).count()
     unassigned_images = Image.query.filter(~Image.id.in_(
         db.session.query(Assignment.image_id)
     )).count()
@@ -317,6 +345,7 @@ def admin_dashboard():
         total_assignments=total_assignments,
         completed_assignments=completed_assignments,
         unassigned_images=unassigned_images,
+        total_approved=total_approved,
         user_stats=user_stats
     )
 
@@ -404,6 +433,51 @@ def admin_create_assignments():
     db.session.commit()
     flash(f'Assigned {created} images to {user.username}')
     return redirect(url_for('admin_assignments'))
+
+@app.route('/admin/download')
+@login_required
+@admin_required
+def admin_download_annotations():
+    status_filter = request.args.get('status', 'approved')
+    user_filter = request.args.get('user_id', 'all')
+    
+    query = db.session.query(Annotation, Image, User).join(
+        Image, Annotation.image_id == Image.id
+    ).join(User, Annotation.user_id == User.id)
+    
+    if status_filter == 'approved':
+        query = query.filter(Annotation.is_approved == True)
+    elif status_filter == 'rejected':
+        query = query.filter(Annotation.is_approved == False, Annotation.is_reported == False)
+    elif status_filter == 'reported':
+        query = query.filter(Annotation.is_reported == True)
+    
+    if user_filter != 'all':
+        query = query.filter(Annotation.user_id == user_filter)
+    
+    results = query.all()
+    data = []
+    for ann, img, user in results:
+        data.append({
+            'image_id': img.id,
+            'image_url': img.image_url,
+            'image_path': img.image_path,
+            'source': img.source,
+            'question': ann.question,
+            'answer': ann.answer,
+            'is_approved': ann.is_approved,
+            'is_reported': ann.is_reported,
+            'annotated_at': ann.annotated_at.isoformat() if ann.annotated_at else None,
+            'username': user.username,
+            'annotation_pass': ann.annotation_pass
+        })
+    
+    response = Response(
+        json.dumps(data, indent=2),
+        mimetype='application/json',
+        headers={'Content-Disposition': f'attachment;filename=annotations_{status_filter}.json'}
+    )
+    return response
 
 def init_db():
     db.create_all()
