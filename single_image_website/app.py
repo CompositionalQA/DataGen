@@ -314,6 +314,7 @@ def admin_dashboard():
     total_assignments = Assignment.query.count()
     completed_assignments = Assignment.query.filter_by(status='completed').count()
     total_approved = Annotation.query.filter_by(is_approved=True).count()
+    validated_complete = Annotation.query.filter_by(validation_status='complete').count()
     unassigned_images = Image.query.filter(~Image.id.in_(
         db.session.query(Assignment.image_id)
     )).count()
@@ -346,6 +347,7 @@ def admin_dashboard():
         completed_assignments=completed_assignments,
         unassigned_images=unassigned_images,
         total_approved=total_approved,
+        validated_complete=validated_complete,
         user_stats=user_stats
     )
 
@@ -478,6 +480,185 @@ def admin_download_annotations():
         headers={'Content-Disposition': f'attachment;filename=annotations_{status_filter}.json'}
     )
     return response
+
+@app.route('/admin/validate')
+@login_required
+@admin_required
+def admin_validate():
+    pending_admin1 = Annotation.query.filter(
+        Annotation.is_approved == True,
+        Annotation.is_reported == False,
+        Annotation.validation_status == 'pending'
+    ).count()
+    
+    pending_admin2 = Annotation.query.filter(
+        Annotation.is_approved == True,
+        Annotation.is_reported == False,
+        Annotation.validation_status == 'admin1_done',
+        Annotation.admin1_id != current_user.id
+    ).count()
+    
+    completed = Annotation.query.filter(
+        Annotation.validation_status == 'complete'
+    ).count()
+    
+    rejected = Annotation.query.filter(
+        Annotation.validation_status == 'rejected'
+    ).count()
+    
+    return render_template('admin/validate.html',
+        pending_admin1=pending_admin1,
+        pending_admin2=pending_admin2,
+        completed=completed,
+        rejected=rejected
+    )
+
+@app.route('/api/admin/next_validation')
+@login_required
+@admin_required
+def get_next_validation():
+    annotation = Annotation.query.filter(
+        Annotation.is_approved == True,
+        Annotation.is_reported == False,
+        Annotation.validation_status == 'admin1_done',
+        Annotation.admin1_id != current_user.id
+    ).first()
+    
+    if not annotation:
+        annotation = Annotation.query.filter(
+            Annotation.is_approved == True,
+            Annotation.is_reported == False,
+            Annotation.validation_status == 'pending'
+        ).first()
+    
+    if not annotation:
+        return jsonify({'all_complete': True, 'message': 'No annotations to validate!'})
+    
+    image = annotation.image
+    annotator = User.query.get(annotation.user_id)
+    
+    result = {
+        'annotation_id': annotation.id,
+        'image_id': image.id,
+        'image_url': image.image_url if image.image_url else image.image_path,
+        'annotator': annotator.username,
+        'original_question': annotation.question,
+        'original_answer': annotation.answer,
+        'validation_status': annotation.validation_status,
+        'admin1': None,
+        'admin2': None
+    }
+    
+    if annotation.admin1_id:
+        admin1 = User.query.get(annotation.admin1_id)
+        result['admin1'] = {
+            'username': admin1.username,
+            'decision': annotation.admin1_decision,
+            'question': annotation.admin1_question,
+            'answer': annotation.admin1_answer
+        }
+    
+    return jsonify(result)
+
+@app.route('/api/admin/validate', methods=['POST'])
+@login_required
+@admin_required
+def submit_validation():
+    data = request.get_json()
+    
+    if not data or 'annotation_id' not in data or 'decision' not in data:
+        return jsonify({'error': 'Missing required fields'}), 400
+    
+    annotation = Annotation.query.get(data['annotation_id'])
+    if not annotation:
+        return jsonify({'error': 'Annotation not found'}), 404
+    
+    decision = data['decision']
+    question = data.get('question', '').strip()
+    answer = data.get('answer', '').strip()
+    
+    if decision not in ['approved', 'rejected']:
+        return jsonify({'error': 'Invalid decision'}), 400
+    
+    if annotation.validation_status == 'pending':
+        if annotation.admin1_id == current_user.id:
+            return jsonify({'error': 'You already validated this as admin 1'}), 400
+        
+        annotation.admin1_id = current_user.id
+        annotation.admin1_decision = decision
+        annotation.admin1_validated_at = datetime.utcnow()
+        
+        if decision == 'rejected':
+            annotation.validation_status = 'rejected'
+        else:
+            if question and answer:
+                annotation.admin1_question = question
+                annotation.admin1_answer = answer
+            annotation.validation_status = 'admin1_done'
+        
+    elif annotation.validation_status == 'admin1_done':
+        if annotation.admin1_id == current_user.id:
+            return jsonify({'error': 'Cannot be both admin 1 and admin 2'}), 400
+        if annotation.admin2_id == current_user.id:
+            return jsonify({'error': 'You already validated this as admin 2'}), 400
+        
+        annotation.admin2_id = current_user.id
+        annotation.admin2_decision = decision
+        annotation.admin2_validated_at = datetime.utcnow()
+        
+        if decision == 'rejected':
+            annotation.validation_status = 'rejected'
+        else:
+            if question and answer:
+                annotation.admin2_question = question
+                annotation.admin2_answer = answer
+                annotation.final_question = question
+                annotation.final_answer = answer
+            elif annotation.admin1_question and annotation.admin1_answer:
+                annotation.final_question = annotation.admin1_question
+                annotation.final_answer = annotation.admin1_answer
+            else:
+                annotation.final_question = annotation.question
+                annotation.final_answer = annotation.answer
+            annotation.validation_status = 'complete'
+    else:
+        return jsonify({'error': 'Annotation not available for validation'}), 400
+    
+    db.session.commit()
+    return jsonify({'success': True})
+
+@app.route('/api/admin/validation_history')
+@login_required
+@admin_required
+def get_validation_history():
+    completed = Annotation.query.filter(
+        Annotation.validation_status.in_(['complete', 'rejected'])
+    ).order_by(Annotation.admin2_validated_at.desc().nullsfirst()).limit(50).all()
+    
+    results = []
+    for ann in completed:
+        image = ann.image
+        annotator = User.query.get(ann.user_id)
+        admin1 = User.query.get(ann.admin1_id) if ann.admin1_id else None
+        admin2 = User.query.get(ann.admin2_id) if ann.admin2_id else None
+        
+        results.append({
+            'annotation_id': ann.id,
+            'image_id': image.id,
+            'image_url': image.image_url if image.image_url else image.image_path,
+            'annotator': annotator.username,
+            'original_question': ann.question,
+            'original_answer': ann.answer,
+            'admin1': admin1.username if admin1 else None,
+            'admin1_decision': ann.admin1_decision,
+            'admin2': admin2.username if admin2 else None,
+            'admin2_decision': ann.admin2_decision,
+            'final_question': ann.final_question,
+            'final_answer': ann.final_answer,
+            'validation_status': ann.validation_status
+        })
+    
+    return jsonify(results)
 
 def init_db():
     db.create_all()

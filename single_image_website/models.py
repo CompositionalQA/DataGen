@@ -19,7 +19,7 @@ class User(UserMixin, db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     assignments = db.relationship('Assignment', backref='user', lazy='dynamic')
-    annotations = db.relationship('Annotation', backref='user', lazy='dynamic')
+    annotations = db.relationship('Annotation', foreign_keys='Annotation.user_id', backref='user', lazy='dynamic')
     
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -72,4 +72,22 @@ class Annotation(db.Model):
     annotation_pass = db.Column(db.Integer, default=1)
     annotated_at = db.Column(db.DateTime, default=datetime.utcnow)
     
+    admin1_id = db.Column(db.String(36), db.ForeignKey('users.id'))
+    admin1_decision = db.Column(db.String(20))
+    admin1_question = db.Column(db.Text)
+    admin1_answer = db.Column(db.Text)
+    admin1_validated_at = db.Column(db.DateTime)
+    
+    admin2_id = db.Column(db.String(36), db.ForeignKey('users.id'))
+    admin2_decision = db.Column(db.String(20))
+    admin2_question = db.Column(db.Text)
+    admin2_answer = db.Column(db.Text)
+    admin2_validated_at = db.Column(db.DateTime)
+    
+    validation_status = db.Column(db.String(20), default='pending')
+    final_question = db.Column(db.Text)
+    final_answer = db.Column(db.Text)
+    
     assignment = db.relationship('Assignment', backref='annotation', uselist=False)
+    admin1 = db.relationship('User', foreign_keys=[admin1_id], backref='admin1_validations')
+    admin2 = db.relationship('User', foreign_keys=[admin2_id], backref='admin2_validations')

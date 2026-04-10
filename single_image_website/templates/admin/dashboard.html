@@ -94,6 +94,7 @@
                     <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
                     <a href="{{ url_for('admin_users') }}">Users</a>
                     <a href="{{ url_for('admin_assignments') }}">Assignments</a>
+                    <a href="{{ url_for('admin_validate') }}">Validate</a>
                 </div>
                 <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
             </div>
@@ -131,6 +132,10 @@
             <div class="stat-card">
                 <h3>Approved Annotations</h3>
                 <div class="value" style="color: #27ae60;">{{ total_approved }}</div>
+            </div>
+            <div class="stat-card">
+                <h3>Validated (Final)</h3>
+                <div class="value" style="color: #9b59b6;">{{ validated_complete }}</div>
             </div>
         </div>
 
